@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Wetter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface2: #181818;
+  --border: #242424;
+  --border2: #2e2e2e;
+  --text: #f0f0f0;
+  --text2: #888;
+  --text3: #555;
+  --accent: #e8ff57;
+  --accent-dim: rgba(232,255,87,0.08);
+  --rain: #4aa8ff;
+  --radius: 14px;
+  --radius-sm: 8px;
+}
+
+body {
+  font-family: 'Syne', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.header {
+  padding: 52px 20px 0;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.app-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--text3);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.location-name {
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+.location-sub {
+  font-size: 0.75rem;
+  color: var(--text3);
+  font-weight: 400;
+  margin-top: 3px;
+  font-family: 'Geist Mono', monospace;
+}
+
+.loc-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-end;
+  padding-top: 4px;
+}
+
+.loc-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 50px;
+  color: var(--text3);
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.65rem;
+  padding: 5px 11px;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+
+.loc-btn.active {
+  background: var(--surface2);
+  border-color: var(--border2);
+  color: var(--text);
+}
+
+.loc-btn:hover:not(.active) {
+  border-color: var(--border2);
+  color: var(--text2);
+}
+
+/* Current weather */
+.current-display {
+  padding: 0 20px;
+  max-width: 520px;
+  margin: 0 auto 24px;
+}
+
+.weather-icon-big { font-size: 2.4rem; margin-bottom: 6px; }
+
+.temp-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.temp-big {
+  font-size: clamp(4rem, 16vw, 6rem);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -3px;
+}
+
+.temp-unit {
+  font-size: 1.6rem;
+  color: var(--text3);
+  margin-bottom: 6px;
+  font-weight: 400;
+}
+
+.weather-desc {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text2);
+  margin-bottom: 18px;
+  letter-spacing: 0.3px;
+}
+
+.stats-strip {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.stat-pill {
+  flex: 1;
+  padding: 11px 8px;
+  text-align: center;
+  border-right: 1px solid var(--border);
+}
+.stat-pill:last-child { border-right: none; }
+
+.stat-val {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.stat-lbl {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 20px 0;
+}
+
+/* Section */
+.section {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.section-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--text3);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 11px;
+}
+
+/* Day chips */
+.day-scroller {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 22px;
+}
+.day-scroller::-webkit-scrollbar { display: none; }
+
+.day-chip {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.16s;
+  min-width: 58px;
+}
+
+.day-chip:hover { border-color: var(--border2); background: var(--surface2); }
+
+.day-chip.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.day-chip.active .chip-day,
+.day-chip.active .chip-date { color: var(--accent); }
+
+.chip-day {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.chip-icon { font-size: 1.1rem; line-height: 1; }
+
+.chip-date {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text2);
+}
+
+.chip-rain {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.57rem;
+  color: var(--rain);
+  min-height: 0.8rem;
+}
+
+/* Charts */
+.chart-block {
+  margin-bottom: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 14px 12px;
+}
+
+.chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.chart-head-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+.chart-dot.yellow { background: var(--accent); }
+.chart-dot.blue   { background: var(--rain); }
+
+.chart-title-text {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.63rem;
+  color: var(--text2);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.chart-range {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--text3);
+}
+
+canvas { width: 100% !important; }
+
+/* Loading */
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  gap: 14px;
+}
+
+.spinner {
+  width: 30px; height: 30px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.loading-text {
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--text3);
+  letter-spacing: 1.5px;
+}
+
+.footer {
+  text-align: center;
+  padding: 22px 20px 48px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--text3);
+  letter-spacing: 0.5px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade { animation: fadeUp 0.3s ease both; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="loading-screen">
+    <div class="spinner"></div>
+    <div class="loading-text">LADE WETTERDATEN…</div>
+  </div>
+</div>
+
+<script>
+const LOCATIONS = [
+  { id: 0, name: 'Liebenau',       sub: 'Steiermark · AT', lat: 47.405, lon: 14.807 },
+  { id: 1, name: 'Heiligenkreuz', sub: 'am Wasser · Stmk',  lat: 46.883, lon: 16.022 }
+];
+
+const WMO = {
+  0:['☀️','Klar'], 1:['🌤','Überwiegend klar'], 2:['⛅','Teilweise bewölkt'],
+  3:['☁️','Bedeckt'], 45:['🌫','Nebel'], 48:['🌫','Reifnebel'],
+  51:['🌦','Nieselregen'], 53:['🌦','Nieselregen'], 55:['🌧','Starker Nieselregen'],
+  61:['🌧','Leichter Regen'], 63:['🌧','Regen'], 65:['🌧','Starker Regen'],
+  71:['🌨','Leichter Schnee'], 73:['🌨','Schnee'], 75:['❄️','Starker Schnee'],
+  80:['🌦','Leichte Schauer'], 81:['🌧','Schauer'], 82:['⛈','Starke Schauer'],
+  95:['⛈','Gewitter'], 96:['⛈','Gewitter + Hagel'], 99:['⛈','Schweres Gewitter']
+};
+const wmo = c => WMO[c] || ['🌡','—'];
+
+let state = { locIdx: 0, dayIdx: 0, data: [null, null], charts: [] };
+
+async function fetchData(locIdx) {
+  if (state.data[locIdx]) return;
+  const { lat, lon } = LOCATIONS[locIdx];
+  const url = `https://api.open-meteo.com/v1/forecast`
+    + `?latitude=${lat}&longitude=${lon}`
+    + `&hourly=temperature_2m,precipitation,weathercode,windspeed_10m`
+    + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode,windspeed_10m_max`
+    + `&current_weather=true&timezone=Europe%2FVienna&forecast_days=7`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('API Error');
+  state.data[locIdx] = await res.json();
+}
+
+function dayLabel(dateStr, i) {
+  if (i === 0) return 'Heute';
+  if (i === 1) return 'Morgen';
+  return new Date(dateStr).toLocaleDateString('de-AT', { weekday: 'short' });
+}
+
+function shortDate(dateStr) {
+  const d = new Date(dateStr);
+  return `${d.getDate()}.${d.getMonth()+1}.`;
+}
+
+function getHourly(data, dayIdx) {
+  const dayStr = data.daily.time[dayIdx];
+  const idxs = data.hourly.time.map((t,i) => t.startsWith(dayStr) ? i : -1).filter(i=>i>=0);
+  return {
+    labels: idxs.map(i => new Date(data.hourly.time[i]).getHours() + ':00'),
+    temps:  idxs.map(i => data.hourly.temperature_2m[i]),
+    precip: idxs.map(i => data.hourly.precipitation[i])
+  };
+}
+
+function destroyCharts() {
+  state.charts.forEach(c => c.destroy());
+  state.charts = [];
+}
+
+function render() {
+  destroyCharts();
+  const d   = state.data[state.locIdx];
+  const loc = LOCATIONS[state.locIdx];
+  const day = state.dayIdx;
+  const cw  = d.current_weather;
+  const dd  = d.daily;
+
+  const isToday  = day === 0;
+  const dispTemp = isToday
+    ? Math.round(cw.temperature)
+    : Math.round((dd.temperature_2m_max[day] + dd.temperature_2m_min[day]) / 2);
+  const [icon, desc] = wmo(dd.weathercode[day]);
+  const maxT = Math.round(dd.temperature_2m_max[day]);
+  const minT = Math.round(dd.temperature_2m_min[day]);
+  const rain = dd.precipitation_sum[day];
+  const wind = Math.round(dd.windspeed_10m_max[day]);
+
+  const h = getHourly(d, day);
+  const tempMin = Math.min(...h.temps);
+  const tempMax = Math.max(...h.temps);
+  const rainMax = Math.max(...h.precip, 0.1);
+
+  const other = LOCATIONS[state.locIdx === 0 ? 1 : 0];
+
+  const chips = dd.time.map((t, i) => {
+    const [ci] = wmo(dd.weathercode[i]);
+    const rs = dd.precipitation_sum[i];
+    return `<div class="day-chip ${i===day?'active':''}" onclick="selectDay(${i})">
+      <div class="chip-day">${dayLabel(t,i)}</div>
+      <div class="chip-icon">${ci}</div>
+      <div class="chip-date">${shortDate(t)}</div>
+      <div class="chip-rain">${rs>0 ? rs+'mm' : ''}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('app').innerHTML = `
+    <div class="header fade">
+      <div class="header-top">
+        <div>
+          <div class="app-label">Wetter · Österreich</div>
+          <div class="location-name">${loc.name}</div>
+          <div class="location-sub">${loc.sub}</div>
+        </div>
+        <div class="loc-switch">
+          <button class="loc-btn active">${loc.name}</button>
+          <button class="loc-btn" onclick="switchLoc(${other.id})">${other.name}</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="current-display fade">
+      <div class="weather-icon-big">${icon}</div>
+      <div class="temp-row">
+        <div class="temp-big">${dispTemp}</div>
+        <div class="temp-unit">°C</div>
+      </div>
+      <div class="weather-desc">${desc} · ${isToday ? 'Aktuell' : dayLabel(dd.time[day], day)}</div>
+      <div class="stats-strip">
+        <div class="stat-pill"><div class="stat-val">${maxT}°</div><div class="stat-lbl">Max</div></div>
+        <div class="stat-pill"><div class="stat-val">${minT}°</div><div class="stat-lbl">Min</div></div>
+        <div class="stat-pill"><div class="stat-val">${rain} mm</div><div class="stat-lbl">Regen</div></div>
+        <div class="stat-pill"><div class="stat-val">${wind} km/h</div><div class="stat-lbl">Wind</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="divider"></div>
+      <div class="section-label">7-Tage-Übersicht</div>
+      <div class="day-scroller">${chips}</div>
+
+      <div class="chart-block">
+        <div class="chart-head">
+          <div class="chart-head-left">
+            <div class="chart-dot yellow"></div>
+            <div class="chart-title-text">Temperatur (°C)</div>
+          </div>
+          <div class="chart-range">${Math.round(tempMin)}° – ${Math.round(tempMax)}°</div>
+        </div>
+        <canvas id="chartTemp" height="130"></canvas>
+      </div>
+
+      <div class="chart-block">
+        <div class="chart-head">
+          <div class="chart-head-left">
+            <div class="chart-dot blue"></div>
+            <div class="chart-title-text">Niederschlag (mm)</div>
+          </div>
+          <div class="chart-range">Max ${rainMax.toFixed(1)} mm</div>
+        </div>
+        <canvas id="chartRain" height="110"></canvas>
+      </div>
+    </div>
+
+    <div class="footer">Open-Meteo · ${new Date().toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'})} aktualisiert</div>
+  `;
+
+  const axisOpts = (unit) => ({
+    x: {
+      ticks: { color:'#555', font:{family:'Geist Mono, monospace',size:9}, maxTicksLimit:8, maxRotation:0 },
+      grid: { color:'rgba(255,255,255,0.04)' }
+    },
+    y: {
+      ticks: { color:'#555', font:{family:'Geist Mono, monospace',size:9}, callback:v=>v+' '+unit, maxTicksLimit:5 },
+      grid: { color:'rgba(255,255,255,0.04)' }
+    }
+  });
+
+  const tooltipOpts = {
+    backgroundColor:'#151515',
+    titleColor:'#555',
+    bodyColor:'#f0f0f0',
+    borderColor:'#2e2e2e',
+    borderWidth:1,
+    padding:10,
+    titleFont:{family:'Geist Mono, monospace',size:10},
+    bodyFont:{family:'Syne, sans-serif',size:13,weight:'700'}
+  };
+
+  state.charts.push(new Chart(document.getElementById('chartTemp'), {
+    type: 'line',
+    data: {
+      labels: h.labels,
+      datasets: [{
+        data: h.temps,
+        borderColor: '#e8ff57',
+        backgroundColor: 'rgba(232,255,87,0.06)',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: '#e8ff57',
+        fill: true, tension: 0.4
+      }]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode:'index', intersect:false },
+      plugins: { legend:{display:false}, tooltip:{...tooltipOpts, callbacks:{label:ctx=>` ${ctx.parsed.y} °C`}} },
+      scales: axisOpts('°C'),
+      animation: { duration:350 }
+    }
+  }));
+
+  state.charts.push(new Chart(document.getElementById('chartRain'), {
+    type: 'bar',
+    data: {
+      labels: h.labels,
+      datasets: [{
+        data: h.precip,
+        backgroundColor: 'rgba(74,168,255,0.5)',
+        borderColor: '#4aa8ff',
+        borderWidth: 0,
+        borderRadius: 3,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode:'index', intersect:false },
+      plugins: { legend:{display:false}, tooltip:{...tooltipOpts, callbacks:{label:ctx=>` ${ctx.parsed.y} mm`}} },
+      scales: { ...axisOpts('mm'), y: { ...axisOpts('mm').y, min:0 } },
+      animation: { duration:350 }
+    }
+  }));
+}
+
+async function switchLoc(idx) {
+  state.locIdx = idx;
+  state.dayIdx = 0;
+  if (!state.data[idx]) {
+    document.getElementById('app').innerHTML = `
+      <div class="loading-screen">
+        <div class="spinner"></div>
+        <div class="loading-text">LADE WETTERDATEN…</div>
+      </div>`;
+    await fetchData(idx);
+  }
+  render();
+}
+
+function selectDay(idx) {
+  state.dayIdx = idx;
+  render();
+}
+
+(async () => {
+  try {
+    await fetchData(0);
+    render();
+  } catch(e) {
+    document.getElementById('app').innerHTML = `
+      <div class="loading-screen">
+        <div style="font-size:2rem;margin-bottom:12px">⚠️</div>
+        <div class="loading-text">VERBINDUNG FEHLGESCHLAGEN</div>
+        <div style="font-size:0.72rem;color:#444;margin-top:8px;font-family:monospace">Internetverbindung prüfen</div>
+      </div>`;
+  }
+})();
+</script>
+</body>
+</html>
